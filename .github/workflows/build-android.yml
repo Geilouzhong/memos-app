@@ -48,32 +48,21 @@ jobs:
       - name: Configure Gradle
         run: |
           cd android
-          echo "newArchEnabled=false" >> gradle.properties
-          cat gradle.properties
+          # Disable new architecture by modifying the existing value
+          sed -i 's/newArchEnabled=true/newArchEnabled=false/' gradle.properties
+          # Verify the change
+          cat gradle.properties | grep newArch
 
       - name: Build Release APK
         run: |
           cd android
           ./gradlew assembleRelease --stacktrace --no-daemon
 
-      - name: List APK files
-        run: |
-          echo "All APK files:"
-          find android/app/build/outputs/apk -name "*.apk" -type f
-          echo ""
-          echo "Release APK files:"
-          ls -lh android/app/build/outputs/apk/release/*.apk 2>/dev/null || echo "No APK in release folder"
-          echo ""
-          echo "Build output structure:"
-          tree android/app/build/outputs/ -L 3
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: |
-            android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/**/*.apk
+          path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
           if-no-files-found: warn
 
@@ -85,8 +74,6 @@ jobs:
           name: Release v${{ github.run_number }}
           draft: false
           prerelease: false
-          files: |
-            android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/**/*.apk
+          files: android/app/build/outputs/apk/release/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
