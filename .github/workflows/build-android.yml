@@ -1,4 +1,4 @@
-name: Build Android APK
+name: React Native Android Build
 
 on:
   push:
@@ -13,30 +13,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # Checkout repository code
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
+      # Setup Node.js with caching
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      - name: Use existing node_modules
-        run: |
-          echo "Skipping npm install, using existing package-lock.json"
-          echo "Node modules will be restored from cache"
+      # Cache node modules
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      - name: Setup JDK
+      # Setup Java JDK
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: Cache Gradle packages
+      # Cache Gradle packages
+      - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
@@ -46,29 +51,87 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      - name: Grant execute permission for gradlew
+      # Install npm dependencies with retry
+      - name: Install dependencies
+        run: npm install
+
+      # Setup Android SDK and NDK if needed
+      - name: Setup Android environment
+        run: |
+          echo "Android SDK: $ANDROID_HOME"
+          echo "Android NDK: $ANDROID_NDK_HOME"
+          ls -la $ANDROID_HOME 2>/dev/null || echo "ANDROID_HOME not set"
+
+      # Prebuild (generates native code)
+      - name: Prebuild
+        run: npx expo prebuild --clean --platform android
+        continue-on-error: true
+        env:
+          EXPO_SKIP_AI_CONFIG: 1
+
+      # Grant execute permission for gradlew
+      - name: Grant execute permission
         run: chmod +x android/gradlew
 
-      - name: Build Release APK
+      # Configure Gradle properties
+      - name: Configure Gradle
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon
-        continue-on-error: true
+          if [ ! -f gradle.properties ]; then
+            echo "Creating gradle.properties"
+            touch gradle.properties
+          fi
+          if ! grep -q "newArchEnabled" gradle.properties; then
+            echo "newArchEnabled=false" >> gradle.properties
+          else
+            sed -i 's/newArchEnabled=true/newArchEnabled=false/' gradle.properties
+          fi
+          cat gradle.properties
 
-      - name: List build outputs
-        if: always()
+      # Build APK with verbose output
+      - name: Build APK
         run: |
-          echo "Build outputs:"
-          find android/app/build/outputs -name "*.apk" 2>/dev/null || echo "No APK files found"
+          cd android
+          echo "Starting Gradle build..."
+          ./gradlew assembleRelease \
+            --stacktrace \
+            --info \
+            --no-daemon \
+            --warning-mode all 2>&1 | tee build.log
 
+      - name: Save build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: android/build.log
+
+      # Check for APK
+      - name: Check APK
+        run: |
+          echo "Searching for APK files..."
+          find android/app/build/outputs -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+
+      # Upload APK artifact
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: android/app/build/outputs/apk/release/*.apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/**/*.apk
           retention-days: 30
-          if-no-files-found: warn
+          if-no-files-found: error
+
+      - name: Upload all build outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-outputs
+          path: android/app/build/outputs
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Create Release
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -78,6 +141,17 @@ jobs:
           name: Release v${{ github.run_number }}
           draft: false
           prerelease: false
-          files: android/app/build/outputs/apk/release/*.apk
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/**/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build summary
+      - name: Build summary
+        if: always()
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
