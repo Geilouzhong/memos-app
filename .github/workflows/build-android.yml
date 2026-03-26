@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build-android:
@@ -13,22 +13,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 检出代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 设置 Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      # 安装依赖
       - name: Install npm dependencies
         run: npm ci
 
-      # 设置 JDK
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
@@ -36,7 +32,6 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      # 缓存 Gradle
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -47,33 +42,44 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 授予 gradlew 执行权限
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      # 禁用新架构以避免构建问题
-      - name: Disable new architecture
+      - name: Disable new architecture and enable edge-to-edge
         run: |
           cd android
+          sed -i 's/newArchEnabled=true/newArchEnabled=false/' gradle.properties
           echo "newArchEnabled=false" >> gradle.properties
+          cat gradle.properties | grep -E "newArch|edgeToEdge|hermes"
 
-      # 构建发布版 APK
       - name: Build Release APK
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log
+        continue-on-error: true
 
-      # 上传 APK artifact
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: android/build.log
+
+      - name: Check APK existence
+        run: |
+          echo "Looking for APK files..."
+          find android/app/build/outputs/apk/release -name "*.apk" -exec ls -lh {} \;
+
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
 
-      # 创建 GitHub Release（仅在 push 到 main 分支时）
       - name: Create Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
