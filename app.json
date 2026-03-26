@@ -1,4 +1,31 @@
 {
-  "name": "MemosApp",
-  "displayName": "MemosApp"
+  "expo": {
+    "name": "memos-app",
+    "slug": "memos-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
+    "nodeModulesPath": false,
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.memosapp",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.memosapp"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "build": {
+      "preview": {
+        "android": {
+          "buildType": "apk"
+        }
+      }
+    }
+  }
 }
