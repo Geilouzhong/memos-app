@@ -51,6 +51,12 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
+      # 禁用新架构以避免构建问题
+      - name: Disable new architecture
+        run: |
+          cd android
+          echo "newArchEnabled=false" >> gradle.properties
+
       # 构建发布版 APK
       - name: Build Release APK
         run: |
