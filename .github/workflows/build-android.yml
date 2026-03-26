@@ -45,38 +45,37 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Disable new architecture and enable edge-to-edge
+      - name: Configure Gradle
         run: |
           cd android
-          sed -i 's/newArchEnabled=true/newArchEnabled=false/' gradle.properties
           echo "newArchEnabled=false" >> gradle.properties
-          cat gradle.properties | grep -E "newArch|edgeToEdge|hermes"
+          cat gradle.properties
 
       - name: Build Release APK
         run: |
           cd android
-          ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log
-        continue-on-error: true
+          ./gradlew assembleRelease --stacktrace --no-daemon
 
-      - name: Upload build log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: android/build.log
-
-      - name: Check APK existence
+      - name: List APK files
         run: |
-          echo "Looking for APK files..."
-          find android/app/build/outputs/apk/release -name "*.apk" -exec ls -lh {} \;
+          echo "All APK files:"
+          find android/app/build/outputs/apk -name "*.apk" -type f
+          echo ""
+          echo "Release APK files:"
+          ls -lh android/app/build/outputs/apk/release/*.apk 2>/dev/null || echo "No APK in release folder"
+          echo ""
+          echo "Build output structure:"
+          tree android/app/build/outputs/ -L 3
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: android/app/build/outputs/apk/release/*.apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/**/*.apk
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Create Release
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -88,5 +87,6 @@ jobs:
           prerelease: false
           files: |
             android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/**/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
