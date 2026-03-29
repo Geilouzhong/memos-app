@@ -1,11 +1,45 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet, Switch } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, StyleSheet, Switch, TextInput, Alert, TouchableOpacity } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
+import { getServerUrl, setServerUrl } from '../api/client';
 import { useNavigation } from '@react-navigation/native';
 
 export const SettingsScreen = () => {
   const { user, signOut } = useAuthStore();
   const navigation = useNavigation();
+  const [serverUrl, setServerUrlState] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [newUrl, setNewUrl] = useState('');
+
+  useEffect(() => {
+    loadServerUrl();
+  }, []);
+
+  const loadServerUrl = async () => {
+    const url = await getServerUrl();
+    setServerUrlState(url);
+  };
+
+  const handleSaveUrl = async () => {
+    if (!newUrl.trim()) {
+      Alert.alert('提示', '请输入服务器地址');
+      return;
+    }
+    if (!newUrl.trim().startsWith('http://') && !newUrl.trim().startsWith('https://')) {
+      Alert.alert('提示', '地址需要以 http:// 或 https:// 开头');
+      return;
+    }
+    try {
+      await setServerUrl(newUrl.trim());
+      setServerUrlState(newUrl.trim());
+      setIsEditing(false);
+      setNewUrl('');
+      Alert.alert('成功', '服务器地址已更新');
+    } catch (error) {
+      Alert.alert('错误', '保存失败');
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -23,28 +57,62 @@ export const SettingsScreen = () => {
     <View style={styles.container}>
       <Text style={styles.title}>设置</Text>
 
-      {user && (
-        <View style={styles.section}>
-          <Text style={styles.label}>用户信息</Text>
-          <Text style={styles.value}>{user.nickname || user.username}</Text>
-          <Text style={styles.email}>{user.email || '未设置邮箱'}</Text>
-        </View>
-      )}
-
-      <View style={[styles.section, styles.sectionBorder]}>
-        <View style={styles.sectionItem}>
-          <Text style={styles.sectionLabel}>当前用户</Text>
-          <Text style={styles.sectionValue}>{user?.username || '未登录'}</Text>
+      {/* 服务器设置 */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>服务器</Text>
+        <View style={styles.sectionContent}>
+          {!isEditing ? (
+            <>
+              <Text style={styles.value}>{serverUrl}</Text>
+              <TouchableOpacity style={styles.editButton} onPress={() => { setNewUrl(serverUrl); setIsEditing(true); }}>
+                <Text style={styles.editButtonText}>修改</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                value={newUrl}
+                onChangeText={setNewUrl}
+                placeholder="http://your-server:port"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+              <View style={styles.editActions}>
+                <TouchableOpacity style={styles.saveButton} onPress={handleSaveUrl}>
+                  <Text style={styles.saveButtonText}>保存</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditing(false)}>
+                  <Text style={styles.cancelButtonText}>取消</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </View>
 
-      <Button
-        title="退出登录"
-        mode="contained"
-        onPress={handleLogout}
-        style={styles.logoutButton}
-        disabled={!user}
-      />
+      {/* 用户信息 */}
+      {user && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>用户信息</Text>
+          <View style={styles.sectionContent}>
+            <Text style={styles.value}>{user.nickname || user.username}</Text>
+            <Text style={styles.email}>{user.email || '未设置邮箱'}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* 退出登录 */}
+      <View style={styles.logoutSection}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          disabled={!user}
+        >
+          <Text style={styles.logoutButtonText}>退出登录</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -64,41 +132,90 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
     backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 15,
   },
-  sectionBorder: {
-    marginTop: 30,
+  sectionTitle: {
+    fontSize: 13,
+    color: '#999',
+    marginBottom: 8,
+    fontWeight: '500',
   },
-  label: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+  sectionContent: {
+    flexDirection: 'column',
   },
   value: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#333',
-    marginBottom: 5,
+    marginBottom: 8,
+    fontFamily: 'monospace',
   },
   email: {
     fontSize: 14,
     color: '#999',
   },
-  sectionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  editButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: '#e3f2fd',
   },
-  sectionLabel: {
-    fontSize: 16,
-    color: '#333',
-  },
-  sectionValue: {
+  editButtonText: {
+    color: '#2196f3',
     fontSize: 14,
+    fontWeight: '500',
+  },
+  input: {
+    width: '100%',
+    height: 44,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    backgroundColor: '#fff',
+    marginBottom: 10,
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  saveButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+    backgroundColor: '#2196f3',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 6,
+    backgroundColor: '#eee',
+  },
+  cancelButtonText: {
     color: '#666',
+    fontSize: 14,
+  },
+  logoutSection: {
+    marginTop: 30,
   },
   logoutButton: {
-    backgroundColor: '#f44336',
-    paddingVertical: 8,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: '#fff5f5',
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: '#f44336',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
