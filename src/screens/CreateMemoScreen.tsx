@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text, StyleSheet } from 'react-native';
+import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useMemoStore } from '../store/memoStore';
 
@@ -71,14 +71,15 @@ export const CreateMemoScreen = () => {
         </View>
       </View>
 
-      <Button
-        style={styles.submitButton}
-        mode="contained"
+      <TouchableOpacity
+        style={[styles.submitButton, (isLoading || !content.trim()) && styles.buttonDisabled]}
         onPress={handleSubmit}
         disabled={isLoading || !content.trim()}
       >
-        {isLoading ? '创建中...' : '创建'}
-      </Button>
+        <Text style={styles.submitButtonText}>
+          {isLoading ? '创建中...' : '创建'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -135,6 +136,17 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 20,
-    paddingVertical: 8,
+    backgroundColor: '#2196f3',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#b3d4f7',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

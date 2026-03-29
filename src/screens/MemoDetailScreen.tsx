@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TextInput, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useMemoStore } from '../store/memoStore';
 
@@ -45,11 +45,11 @@ export const MemoDetailScreen = () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{isEditing ? '编辑 Memo' : 'Memo 详情'}</Text>
-        <Button
-          title={isEditing ? '保存' : '编辑'}
-          mode="contained"
-          onPress={() => setIsEditing(true)}
-        />
+        {!isEditing && (
+          <TouchableOpacity style={styles.editBtn} onPress={() => setIsEditing(true)}>
+            <Text style={styles.editBtnText}>编辑</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView style={styles.content}>
@@ -60,7 +60,7 @@ export const MemoDetailScreen = () => {
             value={content}
             onChangeText={setContent}
             placeholder="输入内容..."
-            style={styles.textInput}
+            textAlignVertical="top"
           />
         ) : (
           <Text style={styles.textContent}>{content}</Text>
@@ -69,17 +69,20 @@ export const MemoDetailScreen = () => {
 
       {isEditing && (
         <View style={styles.footer}>
-          <Button
-            title={isLoading ? '保存中...' : '保存'}
-            mode="contained"
+          <TouchableOpacity
+            style={[styles.saveButton, isLoading && styles.buttonDisabled]}
             onPress={handleSave}
             disabled={isLoading}
-            style={styles.saveButton}
-          />
-          <Button
-            title="取消"
-            onPress={() => setIsEditing(false)}
-          />
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>保存</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cancelButton} onPress={() => setIsEditing(false)}>
+            <Text style={styles.cancelButtonText}>取消</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -103,6 +106,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  editBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    backgroundColor: '#e3f2fd',
+  },
+  editBtnText: {
+    color: '#2196f3',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   content: {
     flex: 1,
     padding: 15,
@@ -114,7 +128,6 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     minHeight: 200,
-    textAlignVertical: 'top',
   },
   textContent: {
     fontSize: 16,
@@ -123,14 +136,37 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 10,
     padding: 15,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
   saveButton: {
     flex: 1,
-    marginRight: 10,
+    backgroundColor: '#2196f3',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    backgroundColor: '#b3d4f7',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
   },
   error: {
     fontSize: 16,

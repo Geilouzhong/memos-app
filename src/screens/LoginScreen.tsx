@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, TextInput, Text, ActivityIndicator, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 
 export const LoginScreen = ({ navigation }) => {
@@ -57,14 +57,17 @@ export const LoginScreen = ({ navigation }) => {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Button
-        style={styles.button}
-        mode="contained"
+      <TouchableOpacity
+        style={[styles.button, (isLoading || !username || !password) && styles.buttonDisabled]}
         onPress={handleLogin}
         disabled={isLoading || !username || !password}
       >
-        {isLoading ? '登录中...' : '登录'}
-      </Button>
+        {isLoading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>登录</Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 };
@@ -103,6 +106,17 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: '#2196f3',
     borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#b3d4f7',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   error: {
     color: '#f44336',

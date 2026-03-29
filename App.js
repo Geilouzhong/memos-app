@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ServerSetupScreen } from './src/screens/ServerSetupScreen';
 import { createApiClient, isServerConfigured } from './src/api/client';
@@ -35,17 +36,27 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2196f3" />
-      </View>
+      <SafeAreaProvider>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2196f3" />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   if (showSetup) {
-    return <ServerSetupScreen onComplete={handleSetupComplete} />;
+    return (
+      <SafeAreaProvider>
+        <ServerSetupScreen onComplete={handleSetupComplete} />
+      </SafeAreaProvider>
+    );
   }
 
-  return <AppNavigator />;
+  return (
+    <SafeAreaProvider>
+      <AppNavigator />
+    </SafeAreaProvider>
+  );
 }
 
 const styles = StyleSheet.create({
